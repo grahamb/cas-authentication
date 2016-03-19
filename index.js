@@ -4,6 +4,8 @@ var url           = require('url'),
     parseXML      = require('xml2js').parseString,
     XMLprocessors = require('xml2js/lib/processors');
 
+require('es6-object-assign').polyfill();
+
 /**
  * The CAS authentication types.
  * @enum {number}
@@ -26,6 +28,7 @@ var AUTH_TYPE = {
  * @property {string}  [session_name='cas_user']
  * @property {string}  [session_info=false]
  * @property {boolean} [destroy_session=false]
+ * @property {Object}  [login_query={}]
  */
 
 /**
@@ -64,6 +67,7 @@ function CASAuthentication(options) {
     else if (this.cas_version === '2.0' || this.cas_version === '3.0') {
         this._validateUri = (this.cas_version === '2.0' ? '/serviceValidate' : '/p3/serviceValidate');
         this._validate = function(body, callback) {
+          console.log(body);
             parseXML(body, {
                 trim: true,
                 normalize: true,
@@ -163,6 +167,7 @@ function CASAuthentication(options) {
     this.session_info    = [ '2.0', '3.0', 'saml1.1' ].indexOf(this.cas_version) >= 0 && options.session_info !== undefined ? options.session_info : false;
     this.destroy_session = options.destroy_session !== undefined ? !!options.destroy_session : false;
 
+    this.login_query     = options.login_query !== undefined ? options.login_query : {};
     // Bind the prototype routing methods to this instance of CASAuthentication.
     this.bounce          = this.bounce.bind(this);
     this.bounce_redirect = this.bounce_redirect.bind(this);
@@ -252,6 +257,9 @@ CASAuthentication.prototype._login = function(req, res, next) {
         service: this.service_url + url.parse(req.url).pathname,
         renew: this.renew
     };
+
+    // Merge any user-supplied login_query items.
+    query = Object.assign(query, this.login_query);
 
     // Redirect to the CAS login.
     res.redirect( this.cas_url + url.format({
